@@ -1,3 +1,4 @@
+# D:\Professional_life\personal_projects\mediVeriabackend\app\services\auth_service.py
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 

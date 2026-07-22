@@ -1,3 +1,4 @@
+# D:\Professional_life\personal_projects\mediVeriabackend\app\schemas\token.py
 from pydantic import BaseModel
 
 

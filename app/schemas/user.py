@@ -1,3 +1,4 @@
+# D:\Professional_life\personal_projects\mediVeriabackend\app\schemas\user.py
 import uuid
 from datetime import datetime
 from typing import Optional
