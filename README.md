@@ -5,9 +5,9 @@
 1. Create a virtual environment and install dependencies:
    ```bash
    python -m venv venv
-   source venv/bin/activate   # on Windows: venv\Scripts\activate
+   source venv/bin/activate   # on Windows: .\venv\Scripts\Activate
    pip install -r requirements.txt
-   ```
+   ```#this website runs only on python 3.11 versions.
 
 2. Create your PostgreSQL database:
    ```sql
@@ -54,3 +54,10 @@
   - `GET /api/v1/reports/{id}/download` (streams the file, protected by `get_current_user` + ownership check)
 - Store files either on disk (`/uploads`) or in S3/GCS, keep only the path/key in Postgres
 - Add Alembic for proper migrations instead of `create_all()`
+
+
+pip install --upgrade pip
+python.exe -m pip install --upgrade pip
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8000
+

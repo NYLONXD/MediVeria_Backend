@@ -1,3 +1,4 @@
+#D:\Projects\MediVeria_Backend\app\api\v1\routes.py
 from fastapi import APIRouter, Depends, Response
 from sqlalchemy.orm import Session
 
@@ -8,7 +9,7 @@ from app.services import auth_service
 from app.models.user import User
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
-
+api_router=router
 
 @router.post("/register", response_model=UserOut, status_code=201)
 def register(user_in: UserCreate, db: Session = Depends(get_db)):
