@@ -1,0 +1,58 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+venv/
+env/
+.venv/
+
+# Environment variables
+.env
+.env.*
+
+# Logs
+*.log
+
+# Database files
+*.db
+*.sqlite3
+
+# IDE / Editor files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build / distribution
+build/
+dist/
+*.egg-info/
+
+# Coverage / testing
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Migrations (optional - if using Alembic)
+alembic/versions/*.pyc
+
+# FastAPI specific
+*.pid
+*.sock
+
+# Docker
+docker-compose.override.yml
+
+# Static / media (if you generate locally)
+media/
+static/
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+
+# MyPy / type check
+.mypy_cache/
