@@ -17,6 +17,9 @@ class UserCreate(BaseModel):
     address: Optional[str] = None
     role: UserRole = UserRole.patient
     category: Optional[str] = None  # e.g. "Cardiologist" — only meaningful for doctors
+    phone: Optional[str] = None
+    license_number: Optional[str] = None
+    date_of_birth: Optional[datetime] = None
 
 
 class UserLogin(BaseModel):
@@ -35,6 +38,7 @@ class UserOut(BaseModel):
     address: Optional[str] = None
     role: UserRole
     category: Optional[str] = None
+    phone: Optional[str] = None
     is_email_verified: bool
     is_active: bool
     created_at: datetime
