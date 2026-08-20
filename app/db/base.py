@@ -3,3 +3,5 @@
 
 from app.db.database import Base  # noqa
 from app.models.user import User  # noqa
+
+from app.models.health_records import Hospital, Doctor, Patient, PendingPatient, Report, ReportFile, AuditLog  # noqa
