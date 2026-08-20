@@ -13,6 +13,12 @@ class Settings(BaseSettings):
     COOKIE_SAMESITE: str = "lax"  # use "none" if frontend/backend are on different domains + COOKIE_SECURE=True
     FRONTEND_ORIGIN: str = "http://localhost:5173"
 
+    # Cloudinary authenticated storage for medical files
+    CLOUDINARY_CLOUD_NAME: str | None = None
+    CLOUDINARY_API_KEY: str | None = None
+    CLOUDINARY_API_SECRET: str | None = None
+    CLOUDINARY_MEDICAL_FOLDER: str = "medvault/reports"
+
     class Config:
         env_file = ".env"
 
