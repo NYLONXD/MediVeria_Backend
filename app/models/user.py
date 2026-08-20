@@ -24,7 +24,7 @@ class User(Base):
     email = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
     phone = Column(String, unique=True, index=True, nullable=True)
-    age = Column(Integer, nullable=True)
+    age = Column(Integer, nullable=False)
     gender = Column(String, nullable=True)
     address = Column(Text, nullable=True)
     role = Column(Enum(UserRole), nullable=False, default=UserRole.patient)
