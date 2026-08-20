@@ -38,6 +38,7 @@ class ReportFileOut(BaseModel):
     file_size_bytes: Optional[int] = None
     is_encrypted: bool
     created_at: datetime
+    view_url: Optional[str] = None  # signed Cloudinary URL, generated on read — not persisted
 
 
 class ProcessingJobOut(BaseModel):
@@ -50,6 +51,17 @@ class ProcessingJobOut(BaseModel):
     attempt: int
     max_attempts: int
     queued_at: datetime
+
+
+class ReportExtractionOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    report_file_id: Optional[uuid.UUID] = None
+    extracted_text: Optional[str] = None
+    structured_data: Optional[dict] = None
+    extraction_method: Optional[str] = None
+    created_at: datetime
 
 
 class ReportOut(BaseModel):
@@ -70,3 +82,4 @@ class ReportOut(BaseModel):
     uploaded_at: datetime
     files: list[ReportFileOut] = Field(default_factory=list)
     processing_jobs: list[ProcessingJobOut] = Field(default_factory=list)
+    extractions: list[ReportExtractionOut] = Field(default_factory=list)

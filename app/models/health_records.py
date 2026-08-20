@@ -245,6 +245,7 @@ class Report(Base):
 
     files = relationship("ReportFile", back_populates="report", cascade="all, delete-orphan")
     processing_jobs = relationship("ProcessingJob", back_populates="report", cascade="all, delete-orphan")
+    extractions = relationship("ReportExtraction", back_populates="report", cascade="all, delete-orphan")
 
 
 class ReportFile(Base):
@@ -304,6 +305,8 @@ class ReportExtraction(Base):
     confidence_score = Column(Numeric(4, 3), CheckConstraint("confidence_score is null or (confidence_score >= 0 and confidence_score <= 1)"))
     parser_version = Column(Text)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    report = relationship("Report", back_populates="extractions")
 
 
 class ReportMeasurement(Base):

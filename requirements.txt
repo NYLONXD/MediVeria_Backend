@@ -10,3 +10,10 @@ python-multipart==0.0.9
 alembic==1.13.3
 email-validator==2.1.1
 cloudinary==1.41.0
+
+# OCR / DICOM processing (added for report viewing pipeline)
+pymupdf==1.24.11
+pytesseract==0.3.13
+pillow==10.4.0
+pydicom==2.4.4
+numpy==1.26.4
