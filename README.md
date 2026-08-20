@@ -9,6 +9,7 @@ Secure FastAPI backend for a medical record platform that lets hospitals, doctor
 - Cloudinary-backed report upload with authenticated assets instead of public URLs.
 - Registered-patient and pending-patient report ownership routes.
 - Report file metadata, checksums, audit logging, and PostgreSQL models aligned with the MedVault schema.
+- Processing pipeline records that identify PDF/image, DICOM, and structured inputs and enqueue the correct next jobs.
 - Protected report listing and detail endpoints scoped by user role.
 
 ## Setup
@@ -52,6 +53,24 @@ Secure FastAPI backend for a medical record platform that lets hospitals, doctor
 | POST | `/api/v1/reports` | Doctor uploads one or more files for a registered or pending patient. |
 | GET | `/api/v1/reports` | List reports visible to the current user. |
 | GET | `/api/v1/reports/{report_id}` | Fetch one protected report with file metadata. |
+
+
+## Processing pipeline status
+
+The backend now **models and queues** the architecture below, but it does **not yet run real OCR, DICOM parsing, table extraction, waveform processing, medical NLP, or AI explanations**. Those require worker services such as Celery/RQ/Arq plus OCR/DICOM/AI libraries or external APIs.
+
+Current upload behavior:
+
+1. Store the original file in authenticated Cloudinary storage.
+2. Detect the source format from MIME type or filename: PDF, image, DICOM, or structured.
+3. Create queued `processing_jobs` rows for the required pipeline:
+   - PDF/image blood and lab reports: virus scan, table extraction, OCR, normalization, AI analysis.
+   - PDF/image MRI, X-ray, prescriptions, notes, summaries: virus scan, OCR/text extraction path, normalization, AI analysis.
+   - DICOM MRI/CT/ECG scans: virus scan, DICOM parsing, thumbnail generation, optional ECG waveform processing, normalization, AI analysis.
+   - Structured JSON/CSV-like uploads: virus scan, structured extraction, normalization, AI analysis.
+4. Return report metadata plus queued jobs to the API client.
+
+Next implementation step: add a background worker that consumes `processing_jobs`, writes OCR/parser output to `report_extractions`, stores lab values in `report_measurements`, and writes patient-safe explanations to `ai_analysis`.
 
 ## Report upload payload
 

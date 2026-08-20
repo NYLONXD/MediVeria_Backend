@@ -2,9 +2,9 @@ import uuid
 from datetime import date, datetime
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
-from app.models.health_records import ReportStatus, ReportType, SourceFormat
+from app.models.health_records import PipelineStage, ProcessingJobStatus, ProcessingJobType, ReportStatus, ReportType, SourceFormat
 
 
 class PendingPatientCreate(BaseModel):
@@ -40,6 +40,18 @@ class ReportFileOut(BaseModel):
     created_at: datetime
 
 
+class ProcessingJobOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    job_type: ProcessingJobType
+    status: ProcessingJobStatus
+    stage: Optional[PipelineStage] = None
+    attempt: int
+    max_attempts: int
+    queued_at: datetime
+
+
 class ReportOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -56,4 +68,5 @@ class ReportOut(BaseModel):
     issued_by_name: Optional[str] = None
     issued_by_department: Optional[str] = None
     uploaded_at: datetime
-    files: list[ReportFileOut] = []
+    files: list[ReportFileOut] = Field(default_factory=list)
+    processing_jobs: list[ProcessingJobOut] = Field(default_factory=list)

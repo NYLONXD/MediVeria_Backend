@@ -10,6 +10,9 @@ from app.models.health_records import (
     Doctor,
     FileRole,
     PendingPatient,
+    ProcessingJob,
+    ProcessingJobType,
+    PipelineStage,
     Report,
     ReportFile,
     ReportStatus,
@@ -29,6 +32,34 @@ def _source_format(content_type: str | None, filename: str | None) -> SourceForm
     if "image" in value or value.endswith((".png", ".jpg", ".jpeg", ".webp")):
         return SourceFormat.image
     return SourceFormat.structured
+
+
+def _planned_jobs(report_type, source_format: SourceFormat) -> list[tuple[ProcessingJobType, PipelineStage]]:
+    jobs = [(ProcessingJobType.virus_scan, PipelineStage.scanning)]
+    if source_format == SourceFormat.dicom:
+        jobs.extend(
+            [
+                (ProcessingJobType.dicom_parsing, PipelineStage.extracting),
+                (ProcessingJobType.thumbnail_generation, PipelineStage.extracting),
+            ]
+        )
+    elif source_format in {SourceFormat.pdf, SourceFormat.image}:
+        if report_type.value in {"blood_test", "lab_report"}:
+            jobs.append((ProcessingJobType.table_extraction, PipelineStage.extracting))
+        jobs.append((ProcessingJobType.ocr, PipelineStage.extracting))
+    else:
+        jobs.append((ProcessingJobType.structured_extraction, PipelineStage.extracting))
+
+    if report_type.value == "ecg":
+        jobs.append((ProcessingJobType.waveform_processing, PipelineStage.extracting))
+
+    jobs.extend(
+        [
+            (ProcessingJobType.normalization, PipelineStage.structuring),
+            (ProcessingJobType.ai_analysis, PipelineStage.analyzing),
+        ]
+    )
+    return jobs
 
 
 def _ensure_doctor_profile(db: Session, current_user: User) -> None:
@@ -78,21 +109,32 @@ def create_report(db: Session, current_user: User, report_in: ReportCreate, file
 
     for upload in files:
         uploaded = upload_medical_file(upload.file, upload.filename or "medical-report", upload.content_type)
-        db.add(
-            ReportFile(
-                report_id=report.id,
-                source_format=_source_format(upload.content_type, upload.filename),
-                role=FileRole.original,
-                bucket_name=uploaded["bucket_name"],
-                object_key=uploaded["object_key"],
-                mime_type=uploaded["mime_type"],
-                file_name=uploaded["file_name"],
-                file_size_bytes=uploaded["bytes"],
-                checksum_sha256=uploaded["checksum_sha256"],
-                encryption_key_ref="cloudinary-authenticated-asset",
-                is_encrypted=True,
-            )
+        source_format = _source_format(upload.content_type, upload.filename)
+        report_file = ReportFile(
+            report_id=report.id,
+            source_format=source_format,
+            role=FileRole.original,
+            bucket_name=uploaded["bucket_name"],
+            object_key=uploaded["object_key"],
+            mime_type=uploaded["mime_type"],
+            file_name=uploaded["file_name"],
+            file_size_bytes=uploaded["bytes"],
+            checksum_sha256=uploaded["checksum_sha256"],
+            encryption_key_ref="cloudinary-authenticated-asset",
+            is_encrypted=True,
         )
+        db.add(report_file)
+        db.flush()
+        for job_type, stage in _planned_jobs(report.report_type, source_format):
+            db.add(
+                ProcessingJob(
+                    report_id=report.id,
+                    report_file_id=report_file.id,
+                    job_type=job_type,
+                    stage=stage,
+                    metadata_json={"planned_by": "upload_pipeline"},
+                )
+            )
 
     db.add(AuditLog(user_id=current_user.id, action=AuditAction.report_upload, entity_type="reports", entity_id=report.id))
     db.commit()
@@ -100,7 +142,7 @@ def create_report(db: Session, current_user: User, report_in: ReportCreate, file
 
 
 def get_report(db: Session, current_user: User, report_id) -> Report:
-    report = db.query(Report).options(joinedload(Report.files)).filter(Report.id == report_id).first()
+    report = db.query(Report).options(joinedload(Report.files), joinedload(Report.processing_jobs)).filter(Report.id == report_id).first()
     if not report:
         raise HTTPException(status_code=404, detail="Report not found")
     if current_user.role == UserRole.patient and report.patient_id != current_user.id:
@@ -109,7 +151,7 @@ def get_report(db: Session, current_user: User, report_id) -> Report:
 
 
 def list_reports(db: Session, current_user: User) -> list[Report]:
-    query = db.query(Report).options(joinedload(Report.files)).order_by(Report.uploaded_at.desc())
+    query = db.query(Report).options(joinedload(Report.files), joinedload(Report.processing_jobs)).order_by(Report.uploaded_at.desc())
     if current_user.role == UserRole.patient:
         query = query.filter(Report.patient_id == current_user.id)
     elif current_user.role == UserRole.doctor:

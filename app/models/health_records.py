@@ -70,6 +70,19 @@ class ClaimStatus(str, enum.Enum):
     revoked = "revoked"
 
 
+class ProcessingJobType(str, enum.Enum):
+    virus_scan = "virus_scan"
+    text_extraction = "text_extraction"
+    ocr = "ocr"
+    table_extraction = "table_extraction"
+    structured_extraction = "structured_extraction"
+    dicom_parsing = "dicom_parsing"
+    waveform_processing = "waveform_processing"
+    normalization = "normalization"
+    thumbnail_generation = "thumbnail_generation"
+    ai_analysis = "ai_analysis"
+
+
 class ProcessingJobStatus(str, enum.Enum):
     queued = "queued"
     processing = "processing"
@@ -231,6 +244,7 @@ class Report(Base):
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
     files = relationship("ReportFile", back_populates="report", cascade="all, delete-orphan")
+    processing_jobs = relationship("ProcessingJob", back_populates="report", cascade="all, delete-orphan")
 
 
 class ReportFile(Base):
@@ -255,6 +269,82 @@ class ReportFile(Base):
     report = relationship("Report", back_populates="files")
 
 
+class ProcessingJob(Base):
+    __tablename__ = "processing_jobs"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    report_id = Column(UUID(as_uuid=True), ForeignKey("reports.id", ondelete="CASCADE"), nullable=False)
+    report_file_id = Column(UUID(as_uuid=True), ForeignKey("report_files.id", ondelete="CASCADE"))
+    job_type = Column(Enum(ProcessingJobType), nullable=False)
+    status = Column(Enum(ProcessingJobStatus), nullable=False, default=ProcessingJobStatus.queued)
+    stage = Column(Enum(PipelineStage))
+    attempt = Column(Integer, CheckConstraint("attempt >= 0"), nullable=False, default=0)
+    max_attempts = Column(Integer, CheckConstraint("max_attempts > 0"), nullable=False, default=3)
+    error_code = Column(Text)
+    error_message = Column(Text)
+    worker_id = Column(Text)
+    metadata_json = Column("metadata", JSONB)
+    queued_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    started_at = Column(DateTime(timezone=True))
+    completed_at = Column(DateTime(timezone=True))
+
+    report = relationship("Report", back_populates="processing_jobs")
+
+
+class ReportExtraction(Base):
+    __tablename__ = "report_extractions"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    report_id = Column(UUID(as_uuid=True), ForeignKey("reports.id", ondelete="CASCADE"), nullable=False)
+    report_file_id = Column(UUID(as_uuid=True), ForeignKey("report_files.id", ondelete="SET NULL"))
+    extracted_text = Column(Text)
+    structured_data = Column(JSONB)
+    extraction_method = Column(Text)
+    language = Column(Text)
+    confidence_score = Column(Numeric(4, 3), CheckConstraint("confidence_score is null or (confidence_score >= 0 and confidence_score <= 1)"))
+    parser_version = Column(Text)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class ReportMeasurement(Base):
+    __tablename__ = "report_measurements"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    report_id = Column(UUID(as_uuid=True), ForeignKey("reports.id", ondelete="CASCADE"), nullable=False)
+    extraction_id = Column(UUID(as_uuid=True), ForeignKey("report_extractions.id", ondelete="SET NULL"))
+    test_name = Column(Text, nullable=False)
+    value_numeric = Column(Numeric)
+    value_text = Column(Text)
+    unit = Column(Text)
+    reference_min = Column(Numeric)
+    reference_max = Column(Numeric)
+    abnormal_flag = Column(Text)
+    measured_at = Column(DateTime(timezone=True))
+    metadata_json = Column("metadata", JSONB)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class AiAnalysis(Base):
+    __tablename__ = "ai_analysis"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    report_id = Column(UUID(as_uuid=True), ForeignKey("reports.id", ondelete="CASCADE"), nullable=False)
+    extraction_id = Column(UUID(as_uuid=True), ForeignKey("report_extractions.id", ondelete="SET NULL"))
+    analysis_type = Column(Enum(AiAnalysisType), nullable=False)
+    summary = Column(Text)
+    simplified_explanation = Column(Text)
+    risk_indicators = Column(JSONB)
+    recommendations = Column(JSONB)
+    confidence_score = Column(Numeric(4, 3), CheckConstraint("confidence_score is null or (confidence_score >= 0 and confidence_score <= 1)"))
+    model_name = Column(Text)
+    model_version = Column(Text)
+    prompt_version = Column(Text)
+    safety_disclaimer = Column(Text)
+    status = Column(Enum(ProcessingJobStatus), default=ProcessingJobStatus.queued)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    completed_at = Column(DateTime(timezone=True))
+
+
 class AuditLog(Base):
     __tablename__ = "audit_logs"
 
@@ -276,6 +366,11 @@ Index("idx_reports_pending_patient", Report.pending_patient_id)
 Index("idx_reports_doctor", Report.uploaded_by_doctor_id)
 Index("idx_reports_hospital", Report.hospital_id)
 Index("idx_reports_date", Report.report_date.desc())
+Index("idx_processing_jobs_report", ProcessingJob.report_id)
+Index("idx_processing_jobs_status", ProcessingJob.status)
+Index("idx_report_extractions_report", ReportExtraction.report_id)
+Index("idx_measurements_report", ReportMeasurement.report_id)
+Index("idx_ai_analysis_report", AiAnalysis.report_id)
 Index("idx_audit_logs_user", AuditLog.user_id)
 Index("idx_audit_logs_entity", AuditLog.entity_type, AuditLog.entity_id)
 Index("idx_audit_logs_created", AuditLog.created_at.desc())
