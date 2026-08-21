@@ -1,30 +1,26 @@
 """
-Synchronous OCR / DICOM conversion helpers.
-
-Hackathon scope: NO AI summarization here. This module only turns an
-uploaded file into (a) readable text or (b) a viewable preview image,
-so the pipeline actually produces something the frontend can show —
-instead of a "queued" processing_job that never runs.
+OCR / DICOM conversion helpers. Pure functions — take bytes, return
+extracted content. No DB or network calls here; workers/tasks.py owns
+fetching the file and writing results.
 
 Requires the `tesseract-ocr` binary installed on the host machine
-(pytesseract is just a Python wrapper around it, pip alone is not enough):
+(pytesseract is just a wrapper — pip install alone is not enough):
   Ubuntu/Debian: sudo apt-get install -y tesseract-ocr
   macOS:         brew install tesseract
-  Windows:       https://github.com/UB-Mannheim/tesseract/wiki
 """
 
 import io
 from typing import Optional
 
-import fitz  # PyMuPDF
+import pymupdf as fitz  # PyMuPDF (import name `fitz` is deprecated upstream)
 import numpy as np
 import pytesseract
 from PIL import Image
 
 
 def extract_text_from_pdf(file_bytes: bytes) -> str:
-    """Try direct text extraction first (fast, works for digital/typed PDFs).
-    Falls back to OCR-ing each rendered page for scanned PDFs."""
+    """Direct text extraction first (fast, works for digital/typed PDFs).
+    Falls back to OCR-ing rendered pages for scanned PDFs."""
     text_chunks: list[str] = []
     doc = fitz.open(stream=file_bytes, filetype="pdf")
     try:
@@ -33,7 +29,6 @@ def extract_text_from_pdf(file_bytes: bytes) -> str:
             if page_text:
                 text_chunks.append(page_text)
                 continue
-            # No embedded text layer -> it's a scanned page, OCR it
             pix = page.get_pixmap(dpi=200)
             img = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
             text_chunks.append(pytesseract.image_to_string(img))
@@ -50,12 +45,10 @@ def extract_text_from_image(file_bytes: bytes) -> str:
 
 
 def dicom_to_preview_png(file_bytes: bytes) -> Optional[bytes]:
-    """Convert a DICOM file to a single viewable PNG preview.
-
-    For multi-frame series (e.g. a CT stack), this returns only the
-    middle frame. A full slice-by-slice viewer is future work — this
-    just gives the patient/doctor something real to look at tonight.
-    """
+    """Convert a DICOM file to one viewable PNG preview. For multi-frame
+    series (CT/MRI stacks), returns only the middle frame — a full
+    slice-by-slice viewer is a frontend concern (e.g. cornerstone.js /
+    OHIF) and out of scope here; this just gives a real image to show."""
     import pydicom
 
     ds = pydicom.dcmread(io.BytesIO(file_bytes))
@@ -63,15 +56,12 @@ def dicom_to_preview_png(file_bytes: bytes) -> Optional[bytes]:
         return None
 
     pixels = ds.pixel_array
-    if pixels.ndim == 3:  # multi-frame: (frames, rows, cols)
+    if pixels.ndim == 3:  # (frames, rows, cols)
         pixels = pixels[pixels.shape[0] // 2]
 
     pixels = pixels.astype(np.float32)
     p_min, p_max = float(pixels.min()), float(pixels.max())
-    if p_max > p_min:
-        pixels = (pixels - p_min) / (p_max - p_min) * 255.0
-    else:
-        pixels = np.zeros_like(pixels)
+    pixels = (pixels - p_min) / (p_max - p_min) * 255.0 if p_max > p_min else np.zeros_like(pixels)
     pixels = pixels.astype(np.uint8)
 
     img = Image.fromarray(pixels)
@@ -81,7 +71,6 @@ def dicom_to_preview_png(file_bytes: bytes) -> Optional[bytes]:
 
 
 def dicom_metadata(file_bytes: bytes) -> dict:
-    """Lightweight header read (no pixel data) for display + audit."""
     import pydicom
 
     ds = pydicom.dcmread(io.BytesIO(file_bytes), stop_before_pixels=True)

@@ -246,6 +246,7 @@ class Report(Base):
     files = relationship("ReportFile", back_populates="report", cascade="all, delete-orphan")
     processing_jobs = relationship("ProcessingJob", back_populates="report", cascade="all, delete-orphan")
     extractions = relationship("ReportExtraction", back_populates="report", cascade="all, delete-orphan")
+    measurements = relationship("ReportMeasurement", back_populates="report", cascade="all, delete-orphan")
 
 
 class ReportFile(Base):
@@ -265,6 +266,7 @@ class ReportFile(Base):
     checksum_sha256 = Column(Text)
     encryption_key_ref = Column(Text)
     is_encrypted = Column(Boolean, nullable=False, default=True)
+    is_quarantined = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     report = relationship("Report", back_populates="files")
@@ -325,6 +327,8 @@ class ReportMeasurement(Base):
     measured_at = Column(DateTime(timezone=True))
     metadata_json = Column("metadata", JSONB)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    report = relationship("Report", back_populates="measurements")
 
 
 class AiAnalysis(Base):

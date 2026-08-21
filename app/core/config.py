@@ -19,6 +19,16 @@ class Settings(BaseSettings):
     CLOUDINARY_API_SECRET: str | None = None
     CLOUDINARY_MEDICAL_FOLDER: str = "medvault/reports"
 
+    # Background job queue (Celery broker + result backend)
+    REDIS_URL: str = "redis://localhost:6379/0"
+
+    # Optional virus scanning — disabled by default since most dev
+    # machines don't run a clamd daemon. Enable once ClamAV is running
+    # (see docker-compose.yml).
+    CLAMAV_ENABLED: bool = False
+    CLAMAV_HOST: str = "localhost"
+    CLAMAV_PORT: int = 3310
+
     class Config:
         env_file = ".env"
 

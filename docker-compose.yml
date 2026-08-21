@@ -1,0 +1,18 @@
+version: "3.8"
+
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+  # Optional — only needed if you set CLAMAV_ENABLED=true in .env.
+  # First start takes ~60-90s: ClamAV downloads virus definitions before
+  # its socket comes up. Scans will error (and fail OPEN — see
+  # virus_scan_service.py) until it's ready.
+  # clamav:
+  #   image: clamav/clamav:1.3
+  #   ports:
+  #     - "3310:3310"
+  #   restart: unless-stopped

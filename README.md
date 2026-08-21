@@ -96,3 +96,7 @@ Example `payload` for an unregistered patient:
 ```
 
 Cloudinary uploads use `type="authenticated"`, so application code should generate short-lived signed access URLs rather than exposing raw public objects.
+
+```docker compose up -d redis
+uvicorn app.main:app --reload                                    # API
+celery -A app.workers.celery_app worker --loglevel=info           # worker — new, must be running```
