@@ -8,9 +8,13 @@ venv/
 .env/
 .venv/
 
+# JavaScript dependencies
+node_modules/
+
 # Environment variables
 .env
 .env.*
+!.env.example
 
 # Logs
 *.log
