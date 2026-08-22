@@ -369,6 +369,30 @@ class AuditLog(Base):
     metadata_json = Column("metadata", JSONB)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
+class AuditAction(str, enum.Enum):
+    login = "login"
+    logout = "logout"
+    report_upload = "report_upload"
+    report_view = "report_view"
+    report_download = "report_download"
+    report_share = "report_share"
+    report_delete = "report_delete"
+    report_claim = "report_claim"
+    report_analyze = "report_analyze"
+    appointment_create = "appointment_create"
+    appointment_update = "appointment_update"
+    chat_send = "chat_send"
+    profile_update = "profile_update"
+    access_granted = "access_granted"
+    access_revoked = "access_revoked"
+    equipment_create = "equipment_create"
+    equipment_update = "equipment_update"
+    equipment_usage_log = "equipment_usage_log"
+    equipment_event_log = "equipment_event_log"
+    equipment_maintenance_log = "equipment_maintenance_log"
+    component_inventory_update = "component_inventory_update"
+    other = "other"
+
 
 Index("idx_reports_patient", Report.patient_id)
 Index("idx_reports_pending_patient", Report.pending_patient_id)

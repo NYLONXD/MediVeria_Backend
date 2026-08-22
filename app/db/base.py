@@ -1,7 +1,13 @@
-# Import all models here so that Base.metadata.create_all() and Alembic
-# migrations can discover every table. Add new model imports as you add models.
-
 from app.db.database import Base  # noqa
 from app.models.user import User  # noqa
 
 from app.models.health_records import Hospital, Doctor, Patient, PendingPatient, Report, ReportFile, ProcessingJob, ReportExtraction, ReportMeasurement, AiAnalysis, AuditLog  # noqa
+
+from app.models.equipment import (
+    MedicalEquipment,
+    EquipmentUsageSession,
+    EquipmentEvent,
+    EquipmentMaintenance,
+    SemiconductorComponent,
+    EquipmentComponent,
+)  # noqa
