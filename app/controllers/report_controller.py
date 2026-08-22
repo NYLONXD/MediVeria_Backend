@@ -8,6 +8,7 @@ from app.dependencies import get_current_user, get_db
 from app.models.user import User
 from app.schemas.report import ReportCreate, ReportOut
 from app.services import report_service
+from app.dependencies import get_current_user, get_db, require_card_verified
 
 router = APIRouter(prefix="/reports", tags=["Reports"])
 
@@ -31,3 +32,23 @@ def list_reports(db: Session = Depends(get_db), current_user: User = Depends(get
 @router.get("/{report_id}", response_model=ReportOut)
 def get_report(report_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     return report_service.get_report(db, current_user, report_id)
+
+
+@router.post("", response_model=ReportOut, status_code=201)
+def upload_report(
+    payload: Annotated[str, Form(...)],
+    files: Annotated[list[UploadFile], File(...)],
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_card_verified),   # was get_current_user
+):
+    report_in = ReportCreate.model_validate(json.loads(payload))
+    return report_service.create_report(db, current_user, report_in, files)
+
+
+@router.delete("/{report_id}", status_code=204)
+def delete_report(
+    report_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_card_verified),
+):
+    report_service.delete_report(db, current_user, report_id)

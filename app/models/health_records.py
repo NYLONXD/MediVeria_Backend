@@ -184,6 +184,8 @@ class Doctor(Base, TimestampMixin):
     bio = Column(Text)
     consultation_fee = Column(Numeric(10, 2), CheckConstraint("consultation_fee >= 0"))
     is_verified = Column(Boolean, nullable=False, default=False)
+    card_uid = Column(String, unique=True, index=True, nullable=True)
+    card_registered_at = Column(DateTime(timezone=True), nullable=True)
 
 
 class Patient(Base, TimestampMixin):

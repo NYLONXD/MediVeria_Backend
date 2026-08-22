@@ -21,6 +21,9 @@ from app.models.user import User, UserRole
 from app.schemas.report import ReportCreate
 from app.services.cloudinary_service import get_signed_url, resource_type_for_source_format, upload_medical_file
 from app.services.pipeline_planning import detect_source_format, plan_jobs
+from app.services.cloudinary_service import (
+    destroy_asset, get_signed_url, resource_type_for_source_format, upload_medical_file,
+)
 
 
 def _ensure_doctor_profile(db: Session, current_user: User) -> None:
@@ -182,3 +185,20 @@ def list_reports(db: Session, current_user: User) -> list[Report]:
     elif current_user.role == UserRole.doctor:
         query = query.filter(Report.uploaded_by_doctor_id == current_user.id)
     return [_attach_view_urls(r) for r in query.all()]
+
+def delete_report(db: Session, current_user: User, report_id) -> None:
+    report = db.query(Report).filter(Report.id == report_id).first()
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+    if report.uploaded_by_doctor_id != current_user.id:
+        raise HTTPException(status_code=403, detail="You can only delete reports you uploaded")
+
+    for f in report.files:
+        try:
+            destroy_asset(f.object_key, resource_type_for_source_format(f.source_format))
+        except Exception:
+            pass  # best-effort — the DB row removal below is the real source of truth
+
+    db.add(AuditLog(user_id=current_user.id, action=AuditAction.report_delete, entity_type="reports", entity_id=report.id))
+    db.delete(report)  # cascades to files/jobs/extractions/measurements
+    db.commit()

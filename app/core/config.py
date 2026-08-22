@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     CLAMAV_ENABLED: bool = False
     CLAMAV_HOST: str = "localhost"
     CLAMAV_PORT: int = 3310
+    CARD_VERIFY_TTL_SECONDS: int = 60
 
     class Config:
         env_file = ".env"

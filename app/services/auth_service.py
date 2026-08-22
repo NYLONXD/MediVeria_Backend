@@ -6,6 +6,7 @@ from app.core.security import hash_password, verify_password, create_access_toke
 from app.models.health_records import Doctor, Patient
 from app.models.user import User, UserRole
 from app.schemas.user import UserCreate, UserLogin
+from app.core.redis_client import mark_card_verified
 
 
 def register_user(db: Session, user_in: UserCreate) -> User:
@@ -70,3 +71,25 @@ def send_password_reset_email(db: Session, email: str) -> None:
     # Placeholder for the future email provider integration. Keep response generic.
     db.query(User).filter(User.email == email).first()
     return None
+
+def authenticate_by_card(db: Session, card_uid: str) -> str:
+    doctor = db.query(Doctor).filter(Doctor.card_uid == card_uid).first()
+    if not doctor:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Card not recognized")
+
+    user = db.query(User).filter(User.id == doctor.id).first()
+    if not user or not user.is_active:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This account has been deactivated")
+
+    return create_access_token(data={"sub": str(user.id), "role": user.role.value})
+
+
+def verify_card_for_action(db: Session, current_user: User, card_uid: str) -> None:
+    if current_user.role != UserRole.doctor:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only doctors can verify with a card")
+
+    doctor = db.query(Doctor).filter(Doctor.id == current_user.id).first()
+    if not doctor or not doctor.card_uid or doctor.card_uid != card_uid:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Card does not match this account")
+
+    mark_card_verified(current_user.id)
