@@ -35,6 +35,7 @@ from app.models.health_records import (
 )
 from app.services import measurement_parser, ocr_service, virus_scan_service
 from app.services.cloudinary_service import (
+    delivery_format_for_file,
     destroy_asset,
     get_signed_url,
     resource_type_for_source_format,
@@ -52,7 +53,11 @@ class QuarantineError(Exception):
 
 def _download_original_bytes(report_file: ReportFile) -> bytes:
     resource_type = resource_type_for_source_format(report_file.source_format)
-    url = get_signed_url(report_file.object_key, resource_type)
+    url = get_signed_url(
+        report_file.object_key,
+        resource_type,
+        delivery_format_for_file(report_file.file_name, report_file.source_format),
+    )
     resp = requests.get(url, timeout=120)
     resp.raise_for_status()
     return resp.content

@@ -1,9 +1,11 @@
 from hashlib import sha256
+from pathlib import Path
+from time import time
 from typing import BinaryIO
 
 import cloudinary
 import cloudinary.uploader
-from cloudinary.utils import cloudinary_url
+from cloudinary.utils import private_download_url
 from fastapi import HTTPException, status
 
 from app.core.config import settings
@@ -33,6 +35,21 @@ def resource_type_for_source_format(source_format: SourceFormat) -> str:
     return "image" if source_format in (SourceFormat.pdf, SourceFormat.image) else "raw"
 
 
+def delivery_format_for_file(file_name: str | None, source_format: SourceFormat) -> str | None:
+    """Return the extension Cloudinary used to identify the original asset.
+
+    Authenticated delivery URLs are signed as their complete path. Omitting a
+    PDF/image extension therefore creates a different URL from the uploaded
+    original and Cloudinary rejects the request with 401.
+    """
+    extension = Path(file_name or "").suffix.lower().removeprefix(".")
+    if extension == "jpeg":
+        return "jpg"
+    if extension:
+        return extension
+    return "pdf" if source_format == SourceFormat.pdf else None
+
+
 def upload_medical_file(file_obj: BinaryIO, file_name: str, content_type: str | None) -> dict:
     _configure()
 
@@ -60,23 +77,26 @@ def upload_medical_file(file_obj: BinaryIO, file_name: str, content_type: str | 
     }
 
 
-def get_signed_url(object_key: str, resource_type: str = "image") -> str:
-    """Files are uploaded as `type=authenticated`, so the raw secure_url
-    Cloudinary returns is NOT publicly reachable — every view needs a
-    signed URL generated on demand, or the frontend has nothing to render.
+def get_signed_url(
+    object_key: str,
+    resource_type: str = "image",
+    delivery_format: str | None = None,
+) -> str:
+    """Generate a short-lived authenticated-original download URL.
 
-    NOTE: this signature does not expire on its own (Cloudinary's
-    token-based auth adds real expiry, and needs separate setup) — fine
-    for now, revisit before production if link-sharing is a concern."""
+    Cloudinary's CDN delivery signature is rejected for this account's
+    authenticated PDFs. Its API download endpoint is designed for protected
+    originals and works for the worker and browser previews alike.
+    """
     _configure()
-    url, _ = cloudinary_url(
+    return private_download_url(
         object_key,
+        delivery_format,
+        expires_at=int(time()) + 300,
+        attachment=False,
         resource_type=resource_type,
         type="authenticated",
-        sign_url=True,
-        secure=True,
     )
-    return url
 
 
 def destroy_asset(object_key: str, resource_type: str = "image") -> None:

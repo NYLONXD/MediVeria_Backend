@@ -19,11 +19,14 @@ from app.models.health_records import (
 )
 from app.models.user import User, UserRole
 from app.schemas.report import ReportCreate
-from app.services.cloudinary_service import get_signed_url, resource_type_for_source_format, upload_medical_file
-from app.services.pipeline_planning import detect_source_format, plan_jobs
 from app.services.cloudinary_service import (
-    destroy_asset, get_signed_url, resource_type_for_source_format, upload_medical_file,
+    delivery_format_for_file,
+    get_signed_url,
+    resource_type_for_source_format,
+    upload_medical_file,
 )
+from app.services.pipeline_planning import detect_source_format, plan_jobs
+from app.services.cloudinary_service import destroy_asset
 
 
 def _ensure_doctor_profile(db: Session, current_user: User) -> None:
@@ -144,7 +147,11 @@ def _attach_view_urls(report: Report) -> Report:
             f.view_url = None
             continue
         try:
-            f.view_url = get_signed_url(f.object_key, resource_type_for_source_format(f.source_format))
+            f.view_url = get_signed_url(
+                f.object_key,
+                resource_type_for_source_format(f.source_format),
+                delivery_format_for_file(f.file_name, f.source_format),
+            )
         except Exception:
             f.view_url = None
     return report

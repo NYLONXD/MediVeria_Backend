@@ -4,24 +4,12 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, File, Form, UploadFile
 from sqlalchemy.orm import Session
 
-from app.dependencies import get_current_user, get_db
+from app.dependencies import get_current_user, get_db, require_card_verified, require_processing_queue
 from app.models.user import User
 from app.schemas.report import ReportCreate, ReportOut
 from app.services import report_service
-from app.dependencies import get_current_user, get_db, require_card_verified
 
 router = APIRouter(prefix="/reports", tags=["Reports"])
-
-
-@router.post("", response_model=ReportOut, status_code=201)
-def upload_report(
-    payload: Annotated[str, Form(...)],
-    files: Annotated[list[UploadFile], File(...)],
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    report_in = ReportCreate.model_validate(json.loads(payload))
-    return report_service.create_report(db, current_user, report_in, files)
 
 
 @router.get("", response_model=list[ReportOut])
@@ -38,8 +26,9 @@ def get_report(report_id: str, db: Session = Depends(get_db), current_user: User
 def upload_report(
     payload: Annotated[str, Form(...)],
     files: Annotated[list[UploadFile], File(...)],
+    _: None = Depends(require_processing_queue),
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_card_verified),   # was get_current_user
+    current_user: User = Depends(require_card_verified),
 ):
     report_in = ReportCreate.model_validate(json.loads(payload))
     return report_service.create_report(db, current_user, report_in, files)

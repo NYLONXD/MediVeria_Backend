@@ -1,12 +1,13 @@
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from redis.exceptions import RedisError
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.security import decode_access_token
 from app.db.database import SessionLocal
 from app.models.user import User
-from app.core.redis_client import consume_card_verification
+from app.core.redis_client import consume_card_verification, redis_client
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -60,6 +61,17 @@ def require_role(*allowed_roles: str):
         return current_user
 
     return role_checker
+
+
+def require_processing_queue() -> None:
+    """Fail before persisting an upload when its background queue is down."""
+    try:
+        redis_client.ping()
+    except RedisError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Report processing is unavailable. Start Redis and try the upload again.",
+        ) from exc
 
 def require_card_verified(current_user: User = Depends(get_current_user)) -> User:
     if current_user.role.value != "doctor":
