@@ -4,7 +4,7 @@ from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.models.health_records import PipelineStage, ProcessingJobStatus, ProcessingJobType, ReportStatus, ReportType, SourceFormat
+from app.models.health_records import AiAnalysisType, PipelineStage, ProcessingJobStatus, ProcessingJobType, ReportStatus, ReportType, SourceFormat
 
 
 class PendingPatientCreate(BaseModel):
@@ -83,6 +83,23 @@ class ReportMeasurementOut(BaseModel):
     abnormal_flag: Optional[str] = None
 
 
+class AiAnalysisOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    analysis_type: AiAnalysisType
+    summary: Optional[str] = None
+    simplified_explanation: Optional[str] = None
+    risk_indicators: Optional[list[dict]] = None
+    recommendations: Optional[list[str]] = None
+    confidence_score: Optional[float] = None
+    model_name: Optional[str] = None
+    safety_disclaimer: Optional[str] = None
+    status: ProcessingJobStatus
+    created_at: datetime
+    completed_at: Optional[datetime] = None
+
+
 class ReportOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -104,3 +121,4 @@ class ReportOut(BaseModel):
     processing_jobs: list[ProcessingJobOut] = Field(default_factory=list)
     extractions: list[ReportExtractionOut] = Field(default_factory=list)
     measurements: list[ReportMeasurementOut] = Field(default_factory=list)
+    analyses: list[AiAnalysisOut] = Field(default_factory=list)

@@ -249,6 +249,7 @@ class Report(Base):
     processing_jobs = relationship("ProcessingJob", back_populates="report", cascade="all, delete-orphan")
     extractions = relationship("ReportExtraction", back_populates="report", cascade="all, delete-orphan")
     measurements = relationship("ReportMeasurement", back_populates="report", cascade="all, delete-orphan")
+    analyses = relationship("AiAnalysis", back_populates="report", cascade="all, delete-orphan")
 
 
 class ReportFile(Base):
@@ -352,6 +353,8 @@ class AiAnalysis(Base):
     status = Column(Enum(ProcessingJobStatus), default=ProcessingJobStatus.queued)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     completed_at = Column(DateTime(timezone=True))
+
+    report = relationship("Report", back_populates="analyses")
 
 
 class AuditLog(Base):

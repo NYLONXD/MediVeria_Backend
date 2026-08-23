@@ -2,9 +2,7 @@
 The actual background pipeline. One task instance == one row in
 processing_jobs. On success it looks up the next job in the chain
 (stored on its own metadata_json.next_job_id) and enqueues that one —
-except the last real stage (normalization), which stops the chain rather
-than enqueueing ai_analysis. AI is intentionally not implemented; that
-job_type simply stays "queued" forever until that's built later.
+including the final deterministic demo AI-analysis stage.
 
 Retries are tracked in our own `attempt`/`max_attempts` columns (so the
 API can show real progress), and Celery's own retry mechanism is used
@@ -21,6 +19,8 @@ import requests
 
 from app.db.database import SessionLocal
 from app.models.health_records import (
+    AiAnalysis,
+    AiAnalysisType,
     FileRole,
     PipelineStage,
     ProcessingJob,
@@ -33,7 +33,7 @@ from app.models.health_records import (
     ReportStatus,
     SourceFormat,
 )
-from app.services import measurement_parser, ocr_service, virus_scan_service
+from app.services import ai_service, measurement_parser, ocr_service, virus_scan_service
 from app.services.cloudinary_service import (
     delivery_format_for_file,
     destroy_asset,
@@ -79,7 +79,7 @@ def _cancel_remaining_jobs_for_file(db, report_file_id, reason: str) -> None:
 def _maybe_finalize_report(db, report_id) -> None:
     jobs = (
         db.query(ProcessingJob)
-        .filter(ProcessingJob.report_id == report_id, ProcessingJob.job_type != ProcessingJobType.ai_analysis)
+        .filter(ProcessingJob.report_id == report_id)
         .all()
     )
     if not jobs or not all(j.status in _TERMINAL_STATUSES for j in jobs):
@@ -238,11 +238,31 @@ def _handle_waveform(db, report: Report, report_file: ReportFile, raw_bytes: byt
     db.commit()
 
 
+def _handle_ai_analysis(db, report: Report) -> None:
+    """Persist a stable prototype analysis after all extraction stages."""
+    existing = db.query(AiAnalysis).filter(AiAnalysis.report_id == report.id).first()
+    if existing:
+        return
+    analysis = ai_service.build_demo_analysis(report.title, report.measurements)
+    db.add(AiAnalysis(
+        report_id=report.id,
+        analysis_type=AiAnalysisType.patient_explanation,
+        status=ProcessingJobStatus.completed,
+        completed_at=datetime.now(timezone.utc),
+        **analysis,
+    ))
+    db.commit()
+
+
 def _dispatch(db, job: ProcessingJob, report: Report, report_file: ReportFile) -> None:
     if job.job_type == ProcessingJobType.normalization:
         # Checkpoint stage. Real cross-report normalization (unit
         # harmonization, de-duplicating repeated measurements across
         # visits) is meaningful future work, not implemented tonight.
+        return
+
+    if job.job_type == ProcessingJobType.ai_analysis:
+        _handle_ai_analysis(db, report)
         return
 
     raw_bytes = _download_original_bytes(report_file)
@@ -325,9 +345,8 @@ def run_processing_job(self, job_id: str):
         next_job_id = (job.metadata_json or {}).get("next_job_id")
         if next_job_id:
             next_job = db.query(ProcessingJob).filter(ProcessingJob.id == next_job_id).first()
-            if next_job and next_job.job_type != ProcessingJobType.ai_analysis:
+            if next_job:
                 run_processing_job.delay(str(next_job.id))
-            # if the next stage IS ai_analysis, the chain deliberately stops here
 
         _maybe_finalize_report(db, report.id)
     finally:

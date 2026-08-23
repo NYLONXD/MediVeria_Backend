@@ -165,6 +165,7 @@ def get_report(db: Session, current_user: User, report_id) -> Report:
             joinedload(Report.processing_jobs),
             joinedload(Report.extractions),
             joinedload(Report.measurements),
+            joinedload(Report.analyses),
         )
         .filter(Report.id == report_id)
         .first()
@@ -184,6 +185,7 @@ def list_reports(db: Session, current_user: User) -> list[Report]:
             joinedload(Report.processing_jobs),
             joinedload(Report.extractions),
             joinedload(Report.measurements),
+            joinedload(Report.analyses),
         )
         .order_by(Report.uploaded_at.desc())
     )

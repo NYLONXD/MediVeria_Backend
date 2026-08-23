@@ -44,10 +44,8 @@ def plan_jobs(report_type: ReportType, source_format: SourceFormat) -> list[tupl
 
     jobs += [
         (ProcessingJobType.normalization, PipelineStage.structuring),
-        # ai_analysis is planned but never enqueued by the worker chain —
-        # AI is intentionally out of scope right now. The row exists so the
-        # frontend can show "AI analysis: not started" honestly instead of
-        # the stage not existing at all.
+        # A deterministic, clearly-labelled demo analysis runs last. This
+        # keeps the prototype dependable without an external AI dependency.
         (ProcessingJobType.ai_analysis, PipelineStage.analyzing),
     ]
     return jobs

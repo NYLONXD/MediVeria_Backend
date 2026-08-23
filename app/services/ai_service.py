@@ -1,70 +1,53 @@
-import os
+"""Deterministic analysis used by the prototype.
 
-from dotenv import load_dotenv
-from google import genai
-
-
-# --------------------------------------------------
-# Load environment variables
-# --------------------------------------------------
-
-load_dotenv(
-    os.path.join(
-        os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
-        ".env"
-    )
-)
-
-
-# --------------------------------------------------
-# Gemini API configuration
-# --------------------------------------------------
-
-api_key = os.getenv("GEMINI_API_KEY")
-
-print("Checking Gemini API key...")
-
-if api_key:
-    print("GEMINI_API_KEY found")
-else:
-    print("GEMINI_API_KEY NOT found")
-    raise RuntimeError("GEMINI_API_KEY is missing from .env")
-
-
-client = genai.Client(api_key=api_key)
-
-
-# --------------------------------------------------
-# Analyze medical report
-# --------------------------------------------------
-
-def analyze_report(report_text: str) -> str:
-
-    prompt = f"""
-You are an AI assistant for MediVeria,
-a medical record management platform.
-
-Analyze the following medical report.
-
-Tasks:
-
-1. Provide a short summary.
-2. Explain the findings in simple language.
-3. Identify potentially abnormal findings.
-4. Mention possible risk indicators.
-5. Do NOT provide a definitive diagnosis.
-6. Do NOT replace a qualified healthcare professional.
-7. Clearly state that the result should be reviewed
-   by a qualified healthcare professional.
-
-Medical Report:
-
-{report_text}
+This intentionally does not call an external model. It provides a stable,
+safe presentation response for demos and must not be treated as a diagnosis.
 """
 
-    response = client.models.generate_content(
-    model="gemini-3.6-flash",
-    contents=prompt
+from collections.abc import Iterable
+
+
+SAFETY_DISCLAIMER = (
+    "Prototype-generated information only. It is not a diagnosis and must be "
+    "reviewed by a qualified healthcare professional."
 )
 
-    return response.text
+
+def build_demo_analysis(report_title: str, measurements: Iterable[object]) -> dict:
+    """Create a predictable, patient-safe result from parsed measurements."""
+    flagged = []
+    for measurement in measurements:
+        flag = (getattr(measurement, "abnormal_flag", None) or "").lower()
+        if flag and flag not in {"normal", "none"}:
+            value = getattr(measurement, "value_numeric", None)
+            flagged.append({
+                "test": getattr(measurement, "test_name", "Reported measurement"),
+                "flag": flag,
+                "value": str(value if value is not None else getattr(measurement, "value_text", "")),
+            })
+
+    if flagged:
+        summary = f"The prototype found {len(flagged)} result(s) marked for attention in {report_title}."
+        explanation = "Some recorded values are outside their listed reference range. A clinician should interpret them with symptoms and medical history."
+        recommendations = ["Review the flagged values with the treating clinician.", "Seek prompt medical advice if symptoms are severe or worsening."]
+    else:
+        summary = f"{report_title} has been processed and is ready for clinical review."
+        explanation = "No automatically flagged measurement is available in this uploaded report. This does not confirm that all findings are normal."
+        recommendations = ["Review the report with a qualified healthcare professional.", "Keep this report with the patient's clinical record."]
+
+    return {
+        "summary": summary,
+        "simplified_explanation": explanation,
+        "risk_indicators": flagged,
+        "recommendations": recommendations,
+        "confidence_score": 1.0,
+        "model_name": "MediVeria demo analysis",
+        "model_version": "static-v1",
+        "prompt_version": "prototype",
+        "safety_disclaimer": SAFETY_DISCLAIMER,
+    }
+
+
+def analyze_report(report_text: str) -> str:
+    """Compatibility helper for the existing local smoke-test script."""
+    return build_demo_analysis("Medical report", [])['summary']

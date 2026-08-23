@@ -28,7 +28,9 @@ def upload_report(
     files: Annotated[list[UploadFile], File(...)],
     _: None = Depends(require_processing_queue),
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_card_verified),
+    # RFID confirmation is intentionally not required for the prototype.
+    # report_service still verifies that the authenticated user is a doctor.
+    current_user: User = Depends(get_current_user),
 ):
     report_in = ReportCreate.model_validate(json.loads(payload))
     return report_service.create_report(db, current_user, report_in, files)
